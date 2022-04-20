@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: websocket
+  redis:
+    host: 192.168.101.4
+    port: 6379
+app:
+  port: 8201
+  path: /ws/
