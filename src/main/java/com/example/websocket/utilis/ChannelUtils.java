@@ -16,7 +16,6 @@ public class ChannelUtils {
     public static void put(String key, Channel channel) {
         if (MESSAGE_CHANNEL_MAP.get(key) != null) {
             return;
-
         }
         MESSAGE_CHANNEL_MAP.put(key, channel);
     }

@@ -2,17 +2,15 @@ package com.example.websocket.ws;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
-import com.example.websocket.model.InMessageInfo;
-import com.example.websocket.model.Packet;
-import com.example.websocket.model.PacketType;
-import com.example.websocket.model.WsResponse;
+import com.example.websocket.config.RedisConfig;
+import com.example.websocket.model.*;
 import com.example.websocket.utilis.ChannelUtils;
-import com.example.websocket.utilis.JedisUtil;
 import com.example.websocket.utilis.Utility;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.List;
 
@@ -20,6 +18,12 @@ import java.util.List;
 public class InMessageHandler extends SimpleChannelInboundHandler<Packet<InMessageInfo>> {
 
     public static final String PING = "ping";
+
+    private RedisTemplate<String, Object> redisTemplate;
+
+    public InMessageHandler(RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Packet<InMessageInfo> msg) {
@@ -34,26 +38,23 @@ public class InMessageHandler extends SimpleChannelInboundHandler<Packet<InMessa
         val key = userId + "_" + channelId;
         log.info("in message create channel id is {},user id is {}.", channelId, userId);
         if (packet.getData().getType() != null && PING.equals(packet.getData().getType())) {
-            ChannelUtils.put(key, ctx.channel());
-            log.info("保存连接的channel：{}", channelId);
-            val message = JSON.toJSONString(packet);
-            JedisUtil.setList(userId, message);
-            log.info("保存用户：{}的消息：{}", userId, message);
-            JedisUtil.pushMsg(key);
-            log.info("向redis队列push消息：{}", key);
+            pushMsg(ctx, packet, userId, channelId, key);
         } else {
             // 调用 cmp获取相关的数据
             log.info("======= InMessageHandler message ======");
             // TODO: 查询业务逻辑
             // val message = cmpClient.getMessageList(packet.getData().getUserId());
-            val message = String.format("正在查询用户%s的数据...", packet.getData().getUserId());
-            log.info("InMessageHandler message : {}" + message);
-            log.info("保存连接的channel：{}", channelId);
-            JedisUtil.setList(userId, message);
-            log.info("保存用户：{}的消息：{}", userId, message);
-            JedisUtil.pushMsg(key);
-            log.info("向redis队列push消息：{}", key);
+            pushMsg(ctx, packet, userId, channelId, key);
         }
+    }
+
+    private void pushMsg(ChannelHandlerContext ctx, Packet<InMessageInfo> packet, String userId, String channelId, String key) {
+        ChannelUtils.put(key, ctx.channel());
+        log.info("保存连接的channel：{}", channelId);
+        val message = JSON.toJSONString(packet);
+        MsgInfo msgInfo = new MsgInfo(userId, message);
+        log.info("向redis队列：{}，push消息：{}", RedisConfig.IM_QUEUE_CHANNLID, msgInfo);
+        redisTemplate.convertAndSend(RedisConfig.IM_QUEUE_CHANNLID, msgInfo);
     }
 
     @Override
