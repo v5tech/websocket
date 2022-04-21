@@ -2,12 +2,12 @@ package com.example.websocket.ws;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
+import com.example.websocket.config.MessageSender;
 import com.example.websocket.model.InMessageInfo;
 import com.example.websocket.model.Packet;
 import com.example.websocket.model.PacketType;
 import com.example.websocket.model.WsResponse;
 import com.example.websocket.utilis.ChannelUtils;
-import com.example.websocket.utilis.JedisUtil;
 import com.example.websocket.utilis.Utility;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -21,11 +21,17 @@ public class InMessageHandler extends SimpleChannelInboundHandler<Packet<InMessa
 
     public static final String PING = "ping";
 
+    private MessageSender messageSender;
+
+    public InMessageHandler(MessageSender messageSender) {
+        this.messageSender = messageSender;
+    }
+
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Packet<InMessageInfo> msg) {
         val packet = JSON.parseObject(JSON.toJSONString(msg), new TypeReference<Packet<InMessageInfo>>() {
         });
-        log.info("InMessageHandler data : {}", JSON.toJSONString(packet.getData(), true));
+        log.info("InMessageHandler message : {}", JSON.toJSONString(packet.getData(), true));
         if (packet.getData() == null) {
             Utility.sendResponse(ctx.channel(), new WsResponse(WsResponse.ERROR, "InMessage data is empty."));
         }
@@ -36,23 +42,14 @@ public class InMessageHandler extends SimpleChannelInboundHandler<Packet<InMessa
         if (packet.getData().getType() != null && PING.equals(packet.getData().getType())) {
             ChannelUtils.put(key, ctx.channel());
             log.info("保存连接的channel：{}", channelId);
-            val message = JSON.toJSONString(packet);
-            JedisUtil.setList(userId, message);
-            log.info("保存用户：{}的消息：{}", userId, message);
-            JedisUtil.pushMsg(key);
-            log.info("向redis队列push消息：{}", key);
+            messageSender.convertAndSend(JSON.toJSONString(packet));
         } else {
-            // 调用 cmp获取相关的数据
-            log.info("======= InMessageHandler message ======");
-            // TODO: 查询业务逻辑
-            // val message = cmpClient.getMessageList(packet.getData().getUserId());
-            val message = String.format("正在查询用户%s的数据...", packet.getData().getUserId());
-            log.info("InMessageHandler message : {}" + message);
+            ChannelUtils.put(key, ctx.channel());
             log.info("保存连接的channel：{}", channelId);
-            JedisUtil.setList(userId, message);
-            log.info("保存用户：{}的消息：{}", userId, message);
-            JedisUtil.pushMsg(key);
-            log.info("向redis队列push消息：{}", key);
+            // TODO: 查询业务逻辑
+            // 调用 cmp获取相关的数据
+            // val message = cmpClient.getMessageList(packet.getData().getUserId());
+            messageSender.convertAndSend(JSON.toJSONString(packet));
         }
     }
 

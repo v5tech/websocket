@@ -1,7 +1,7 @@
 package com.example.websocket;
 
 import com.example.websocket.config.AppProperties;
-import com.example.websocket.utilis.JedisUtil;
+import com.example.websocket.config.MessageSender;
 import com.example.websocket.ws.HttpRequestHandler;
 import com.example.websocket.ws.InMessageHandler;
 import com.example.websocket.ws.TextWebSocketFrameHandler;
@@ -32,9 +32,10 @@ public class Application implements CommandLineRunner {
     @Autowired
     private AppProperties appProperties;
 
+    @Autowired
+    private MessageSender messageSender;
+
     public static void main(String[] args) {
-        //启动订阅
-        JedisUtil.init();
         SpringApplication.run(Application.class, args);
     }
 
@@ -55,7 +56,7 @@ public class Application implements CommandLineRunner {
                         ch.pipeline().addLast(new WebSocketServerCompressionHandler());
                         ch.pipeline().addLast(new WebSocketServerProtocolHandler(appProperties.getPath(), null, true, 6553500));
                         ch.pipeline().addLast(new TextWebSocketFrameHandler());
-                        ch.pipeline().addLast(new InMessageHandler());
+                        ch.pipeline().addLast(new InMessageHandler(messageSender));
                     }
                     @Override
                     public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {

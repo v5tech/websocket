@@ -1,9 +1,19 @@
 spring:
+  main:
+    web-application-type: none
   application:
     name: websocket
-  redis:
+  rabbitmq:
     host: 192.168.101.4
-    port: 6379
+    port: 5672
+    username: admin
+    password: admin
+    virtual-host: /smartops
+    listener:
+      simple:
+        acknowledge-mode: manual # 手动ack，默认为auto
 app:
-  port: 8201
+#  port: 8201
+#  port: 8202
+  port: 8203
   path: /ws/
